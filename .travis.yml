@@ -1,0 +1,22 @@
+language: go
+go:
+  - "1.11.3"
+  - "1.10.6"
+
+services:
+  - postgresql
+
+before_script:
+  - psql -c "create database migration_test;" -U postgres
+  - psql -c "create user migration_test with password 'migration_test';" -U postgres
+  - psql -c "grant all privileges on database migration_test to migration_test;" -U postgres
+
+install:
+  - go get github.com/lib/pq
+  - go get github.com/mattn/go-sqlite3
+
+script:
+  - go test -coverprofile=profile.out -covermode=atomic
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
