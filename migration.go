@@ -31,6 +31,14 @@
 // Database migrations are performed within a transaction if the database
 // supports it.
 //
+// Write migrations on separate branches
+//
+// Migration identifiers are positive 64-bit integers. Migrations can be defined
+// in different VCS branches using an arbitrary naming convention, such as the
+// current date and time. When branches are merged and a database migration is
+// performed, any unapplied migrations will be applied in ascending order of
+// identifer.
+//
 // Embed migrations in the executable
 //
 // Migrations are written as part of the Go source code, and are embedded in the
@@ -105,7 +113,7 @@ func (e Errors) Error() string {
 
 // Error describes a single error in the migration schema definition.
 type Error struct {
-	Version     int
+	Version     int64
 	Description string
 }
 
@@ -116,12 +124,11 @@ func (e *Error) Error() string {
 
 // Version provides information about a database schema version.
 type Version struct {
-	ID          int        // Database schema version number
-	Description string     // Sort description of changes
-	Applied     *time.Time // Time migration was applied, or nil if not applied
-	Failed      bool       // Did migration fail
-	Up          string     // SQL for up migration, or "<go-func>" if go function
-	Down        string     // SQL for down migration or "<go-func>"" if a go function
+	ID      int64      // Database schema version number
+	Applied *time.Time // Time migration was applied, or nil if not applied
+	Failed  bool       // Did migration fail
+	Up      string     // SQL for up migration, or "<go-func>" if go function
+	Down    string     // SQL for down migration or "<go-func>"" if a go function
 }
 
 // A Command performs database migrations. It combines the

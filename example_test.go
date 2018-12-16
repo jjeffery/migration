@@ -42,16 +42,16 @@ func Example() {
 	// Report database schema version
 	version, err := command.Version(ctx)
 	checkError(err)
-	log.Printf("database schema version=%d description=%q", version.ID, version.Description)
+	log.Printf("database schema version=%d", version.ID)
 
 	// __Output:
-	// migrated up version=1 description="table city"
-	// migrated up version=2 description="table country"
-	// migrated up version=3 description="table countrylanguage"
-	// migrated up version=4 description="city 1"
-	// migrated up version=5 description="city 2"
-	// migrated down version=5 description="city 2"
-	// database schema version=4 description="city 1"
+	// migrated up version=1
+	// migrated up version=2
+	// migrated up version=3
+	// migrated up version=4
+	// migrated up version=5
+	// migrated down version=5
+	// database schema version=4
 }
 
 func checkError(err error) {
@@ -114,7 +114,6 @@ func init() {
 	// Contrived example of a migration implemented in Go that uses
 	// a database transaction.
 	Schema.Define(4).
-		Description("city 1").
 		UpTx(
 			func(ctx context.Context, tx *sql.Tx) error {
 				_, err := tx.ExecContext(ctx, `
@@ -136,7 +135,6 @@ func init() {
 	// not use a database transaction. If this migration fails, the
 	// database will require manual intervention.
 	Schema.Define(5).
-		Description("city 2").
 		UpDB(
 			func(ctx context.Context, db *sql.DB) error {
 				_, err := db.ExecContext(ctx, `

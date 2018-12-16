@@ -14,7 +14,6 @@ func TestSchemaDefine(t *testing.T) {
 		{
 			fn: func(s *Schema) {
 				s.Define(1).
-					Description("migration 1").
 					Up(`create table t1(id int primary key, name text;`).
 					Down(`drop table t1;`)
 			},
@@ -22,7 +21,6 @@ func TestSchemaDefine(t *testing.T) {
 		{
 			fn: func(s *Schema) {
 				s.Define(1).
-					Description("migration 1").
 					Up(`create table t1(id int primary key, name text;`).
 					Down(`drop table t1;`)
 				s.Define(1)
@@ -59,5 +57,4 @@ func TestSchemaErr(t *testing.T) {
 	if !reflect.DeepEqual(e1, e2) {
 		t.Errorf("got=%v\n\nwant=%v\n", e1, e2)
 	}
-
 }

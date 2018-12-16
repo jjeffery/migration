@@ -15,7 +15,7 @@ type Schema struct {
 	// If not specified, defaults to the constant DefaultMigrationsTable.
 	MigrationsTable string
 
-	definitions map[int]*Definition
+	definitions map[int64]*Definition
 	plans       []*migrationPlan
 	errs        Errors
 }
@@ -26,7 +26,7 @@ type Schema struct {
 //
 // This method is typically called at program initialization, once
 // for each database schema version. See the package example.
-func (s *Schema) Define(id int) *Definition {
+func (s *Schema) Define(id int64) *Definition {
 	d := &Definition{id: id}
 	if _, ok := s.definitions[id]; ok {
 		s.errs = append(s.errs, &Error{
@@ -35,7 +35,7 @@ func (s *Schema) Define(id int) *Definition {
 		})
 	} else {
 		if s.definitions == nil {
-			s.definitions = make(map[int]*Definition)
+			s.definitions = make(map[int64]*Definition)
 		}
 		s.definitions[id] = d
 	}
@@ -81,12 +81,14 @@ func (s *Schema) complete() {
 	s.plans = make([]*migrationPlan, 0, len(s.definitions))
 
 	// assemble the version numbers in order
-	ids := make([]int, 0, len(s.definitions))
+	ids := make([]int64, 0, len(s.definitions))
 	{
 		for id := range s.definitions {
 			ids = append(ids, id)
 		}
-		sort.Ints(ids)
+		sort.Slice(ids, func(i, j int) bool {
+			return ids[i] < ids[j]
+		})
 	}
 
 	var prev *migrationPlan

@@ -6,34 +6,19 @@ import "fmt"
 // required to migrate up from the previous version, and the
 // actions required to migrate down to the previous version.
 type Definition struct {
-	id          int
-	description string
-	upSQL       string
-	upDB        DBFunc
-	upTx        TxFunc
-	downSQL     string
-	downDB      DBFunc
-	downTx      TxFunc
+	id      int64
+	upSQL   string
+	upDB    DBFunc
+	upTx    TxFunc
+	downSQL string
+	downDB  DBFunc
+	downTx  TxFunc
 }
 
-func newDefinition(schema *Schema, id int) *Definition {
+func newDefinition(schema *Schema, id int64) *Definition {
 	return &Definition{
 		id: id,
 	}
-}
-
-// Description sets the description for the database version.
-//
-// The description can usually be inferred from the SQL
-// provided to the Up() method. For example, if the up
-// SQL contains a single CREATE TABLE statement, then the
-// description will be set to "table <table-name>".
-//
-// Use this method to override the default description, or to
-// set a description when none can be automatically determined.
-func (d *Definition) Description(s string) *Definition {
-	d.description = s
-	return d
 }
 
 // Up defines the SQL to migrate up to the version.
