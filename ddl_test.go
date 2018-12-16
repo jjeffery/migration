@@ -74,11 +74,164 @@ func TestNewDDLActions(t *testing.T) {
 				},
 			},
 		},
+		{
+			sql:     "unknown verb",
+			actions: nil,
+		},
+		{
+			sql: "create unique index on t1",
+			actions: ddlActions{
+				&ddlAction{
+					verb:       ddlVerbCreate,
+					objectType: dbObjectTypeIndex,
+					name:       "t1",
+				},
+			},
+		},
+		{
+			sql: "create unique index idx on t1",
+			actions: ddlActions{
+				&ddlAction{
+					verb:       ddlVerbCreate,
+					objectType: dbObjectTypeIndex,
+					name:       "t1",
+					index:      "idx",
+				},
+			},
+		},
+		{
+			sql: "create table if not exists t1",
+			actions: ddlActions{
+				&ddlAction{
+					verb:           ddlVerbCreate,
+					objectType:     dbObjectTypeTable,
+					name:           "t1",
+					checkNotExists: true,
+				},
+			},
+		},
+		{
+			sql:     "create widget xyz",
+			actions: nil,
+		},
+		{
+			sql:     "create view view_name.", // invalid sql
+			actions: nil,
+		},
 	}
 
 	for tn, tt := range tests {
 		if got, want := newDDLActions(tt.sql), tt.actions; !actionsEqual(got, want) {
 			t.Errorf("%d: got=%v\nwant=%v", tn, spew.Sdump(got), spew.Sdump(want))
+		}
+	}
+}
+
+func TestDDLActionShouldRestore(t *testing.T) {
+	tests := []struct {
+		objtype dbObjectType
+		want    bool
+	}{
+		{
+			objtype: dbObjectTypeDomain,
+			want:    false,
+		},
+		{
+			objtype: dbObjectTypeFunction,
+			want:    true,
+		},
+	}
+
+	for tn, tt := range tests {
+		if got, want := tt.objtype.ShouldRestore(), tt.want; got != want {
+			t.Errorf("%d: got=%v want=%v", tn, got, want)
+		}
+	}
+}
+
+func TestActionQualifiedName(t *testing.T) {
+	tests := []struct {
+		action ddlAction
+		want   string
+	}{
+		{
+			action: ddlAction{
+				name: "t1",
+			},
+			want: "t1",
+		},
+		{
+			action: ddlAction{
+				name:   "table_name",
+				schema: "schema_name",
+			},
+			want: "schema_name.table_name",
+		},
+	}
+	for tn, tt := range tests {
+		if got, want := tt.action.qualifiedName(), tt.want; got != want {
+			t.Errorf("%d: got=%v, want=%v", tn, got, want)
+		}
+	}
+}
+
+func TestActionsFind(t *testing.T) {
+	tests := []struct {
+		actions ddlActions
+		verb    ddlVerb
+		objType dbObjectType
+		schema  string
+		name    string
+		found   bool
+	}{
+		{
+			actions: ddlActions{
+				&ddlAction{
+					verb:       ddlVerbCreate,
+					objectType: dbObjectTypeView,
+					schema:     "s",
+					name:       "t1",
+				},
+			},
+			verb:    ddlVerbCreate,
+			objType: dbObjectTypeView,
+			schema:  "s",
+			name:    "t1",
+			found:   true,
+		},
+		{
+			actions: ddlActions{
+				&ddlAction{
+					verb:       ddlVerbCreate,
+					objectType: dbObjectTypeView,
+					name:       "t1",
+				},
+			},
+			verb:    ddlVerbCreate,
+			objType: dbObjectTypeView,
+			name:    "t1",
+			found:   true,
+		},
+		{
+			actions: ddlActions{
+				&ddlAction{
+					verb:       ddlVerbDrop,
+					objectType: dbObjectTypeView,
+					schema:     "s",
+					name:       "t1",
+				},
+			},
+			verb:    ddlVerbCreate,
+			objType: dbObjectTypeView,
+			schema:  "s",
+			name:    "t1",
+			found:   false,
+		},
+	}
+
+	for tn, tt := range tests {
+		if got, want := tt.actions.find(tt.verb, tt.objType, tt.schema, tt.name) != nil, tt.found; got != want {
+			t.Errorf("%d: got=%v, want=%v", tn, got, want)
 		}
 	}
 }

@@ -15,7 +15,7 @@ type Definition struct {
 	downTx  TxFunc
 }
 
-func newDefinition(schema *Schema, id int64) *Definition {
+func newDefinition(id int64) *Definition {
 	return &Definition{
 		id: id,
 	}
@@ -119,17 +119,17 @@ func (d *Definition) errs() Errors {
 			upMethods = append(upMethods, "UpTx")
 		}
 		if len(upMethods) > 1 {
-			addError(fmt.Sprintf("call only one method of %v", upMethods))
+			addError(fmt.Sprintf("call only one of %v", upMethods))
 		}
 		if len(upMethods) == 0 {
-			addError("must call one of [Up UpDB UpTx]")
+			addError("call one of [Up UpDB UpTx]")
 		}
 	}
 
 	{
 		downMethods := d.downMethods()
 		if len(downMethods) > 1 {
-			addError(fmt.Sprintf("call only one method of %v", downMethods))
+			addError(fmt.Sprintf("call only one of %v", downMethods))
 		}
 	}
 

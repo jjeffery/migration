@@ -53,27 +53,18 @@ const (
 
 // dbObjectType variables
 var (
-	// allDBObjectTypes is the set of all db object types
-	allDBObjectTypes = map[dbObjectType]struct{}{
-		dbObjectTypeDomain:    struct{}{},
-		dbObjectTypeFunction:  struct{}{},
-		dbObjectTypeIndex:     struct{}{},
-		dbObjectTypeProcedure: struct{}{},
-		dbObjectTypeSequence:  struct{}{},
-		dbObjectTypeTable:     struct{}{},
-		dbObjectTypeTrigger:   struct{}{},
-		dbObjectTypeType:      struct{}{},
-		dbObjectTypeView:      struct{}{},
-	}
-
-	// restoreLast is a map of all db object types for which
-	// the default down migration should be to restore the last
-	// version
-	restorableDBObjectTypes = map[dbObjectType]struct{}{
-		dbObjectTypeView:      struct{}{},
-		dbObjectTypeFunction:  struct{}{},
-		dbObjectTypeProcedure: struct{}{},
-		dbObjectTypeTrigger:   struct{}{},
+	// allDBObjectTypes is the set of all db object types mapped to
+	// a boolean indicating whether it is restorable
+	allDBObjectTypes = map[dbObjectType]bool{
+		dbObjectTypeDomain:    false,
+		dbObjectTypeFunction:  true,
+		dbObjectTypeIndex:     false,
+		dbObjectTypeProcedure: true,
+		dbObjectTypeSequence:  false,
+		dbObjectTypeTable:     false,
+		dbObjectTypeTrigger:   true,
+		dbObjectTypeType:      false,
+		dbObjectTypeView:      true,
 	}
 )
 
@@ -89,8 +80,7 @@ func parseDBObjectType(s string) (dbObjectType, bool) {
 // down migration should attempt to restore the previous
 // version of the database object.
 func (t dbObjectType) ShouldRestore() bool {
-	_, ok := restorableDBObjectTypes[t]
-	return ok
+	return allDBObjectTypes[t]
 }
 
 // ddlActions is a list of ddlAction objects.
@@ -111,17 +101,6 @@ func newDDLActions(sql string) ddlActions {
 	acts = mergeDropCreate(acts)
 	acts = mergeCreateTable(acts)
 	return acts
-}
-
-func (acts ddlActions) containsVerb(verbs ...ddlVerb) bool {
-	for _, act := range acts {
-		for _, verb := range verbs {
-			if act.verb == verb {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func (acts ddlActions) find(verb ddlVerb, objType dbObjectType, schema string, name string) *ddlAction {

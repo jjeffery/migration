@@ -146,8 +146,11 @@ type Command struct {
 }
 
 // NewCommand creates a command that can perform migrations for
-// the specified dataabase using the database migration schema.
+// the specified database using the database migration schema.
 func NewCommand(db *sql.DB, schema *Schema) (*Command, error) {
+	if err := schema.Err(); err != nil {
+		return nil, err
+	}
 	return &Command{schema: schema, db: db}, nil
 }
 

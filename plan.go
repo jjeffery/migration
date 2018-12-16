@@ -34,29 +34,18 @@ func newPlan(def *Definition, prev *migrationPlan) *migrationPlan {
 }
 
 func (p *migrationPlan) deriveDownSQL() {
-	if len(p.def.downMethods()) > 0 {
-		// down migration already defined
-		return
-	}
-	if len(p.actions) == 0 {
-		// cannot derive down SQL
-		return
-	}
-	if p.actions.containsVerb(ddlVerbAlter, ddlVerbDrop) {
-		// cannot reverse a drop or an alter
-		return
-	}
-
 	// count the number actions that should be restored
 	var (
 		shouldRestore int
 		shouldDrop    int
 	)
 	for _, act := range p.actions {
-		if act.objectType.ShouldRestore() {
-			shouldRestore++
-		} else {
-			shouldDrop++
+		if act.verb == ddlVerbCreate {
+			if act.objectType.ShouldRestore() {
+				shouldRestore++
+			} else {
+				shouldDrop++
+			}
 		}
 	}
 
@@ -74,9 +63,38 @@ func (p *migrationPlan) deriveDownSQL() {
 		return
 	}
 
+	if len(p.def.downMethods()) > 0 {
+		// down migration already defined
+		return
+	}
+	if len(p.actions) == 0 {
+		// cannot derive down SQL
+		return
+	}
+	{
+		var found bool
+		// cannot reverse a drop or an alter
+		for _, act := range p.actions {
+			if act.verb != ddlVerbCreate {
+				found = true
+				p.errs = append(p.errs, &Error{
+					Version: p.def.id,
+					Description: fmt.Sprintf("%s %s %s needs a manual down migration",
+						act.verb, act.objectType, act.qualifiedName()),
+				})
+			}
+		}
+		if found {
+			return
+		}
+	}
+
 	if shouldRestore > 0 {
 		p.deriveDownSQLRestore()
-	} else {
+		return
+	}
+
+	if shouldDrop > 0 {
 		p.deriveDownSQLDrop()
 	}
 }
@@ -85,7 +103,7 @@ func (p *migrationPlan) deriveDownSQLRestore() {
 	act := p.actions[0]
 
 	dropSQL := func() string {
-		return fmt.Sprintf("drop %s %s;\n\n", act.objectType, act.qualifiedName())
+		return fmt.Sprintf("drop %s %s;\n", act.objectType, act.qualifiedName())
 	}
 
 	var stmts []string
@@ -134,7 +152,7 @@ func (p *migrationPlan) checkErrors() {
 	{
 		downMethods := p.def.downMethods()
 		if len(downMethods) == 0 && p.downSQL == "" {
-			addError("call one method of [Down DownDB DownTx]")
+			addError("call one of [Down DownDB DownTx]")
 		}
 	}
 }

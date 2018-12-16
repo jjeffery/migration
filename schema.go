@@ -27,7 +27,7 @@ type Schema struct {
 // This method is typically called at program initialization, once
 // for each database schema version. See the package example.
 func (s *Schema) Define(id int64) *Definition {
-	d := &Definition{id: id}
+	d := newDefinition(id)
 	if _, ok := s.definitions[id]; ok {
 		s.errs = append(s.errs, &Error{
 			Version:     id,
@@ -96,5 +96,6 @@ func (s *Schema) complete() {
 		d := s.definitions[id]
 		p := newPlan(d, prev)
 		s.plans = append(s.plans, p)
+		prev = p
 	}
 }
