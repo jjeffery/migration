@@ -124,63 +124,10 @@ func (e *Error) Error() string {
 
 // Version provides information about a database schema version.
 type Version struct {
-	ID      int64      // Database schema version number
-	Applied *time.Time // Time migration was applied, or nil if not applied
-	Failed  bool       // Did migration fail
-	Up      string     // SQL for up migration, or "<go-func>" if go function
-	Down    string     // SQL for down migration or "<go-func>"" if a go function
-}
-
-// A Command performs database migrations. It combines the
-// information in the migration schema along with the database
-// on which to perform migrations.
-type Command struct {
-	// LogFunc is a function for logging progress. If not specified then
-	// no logging is performed.
-	//
-	// One common practice is to assign the log.Println function to LogFunc.
-	LogFunc func(v ...interface{})
-
-	schema *Schema
-	db     *sql.DB
-}
-
-// NewCommand creates a command that can perform migrations for
-// the specified database using the database migration schema.
-func NewCommand(db *sql.DB, schema *Schema) (*Command, error) {
-	if err := schema.Err(); err != nil {
-		return nil, err
-	}
-	return &Command{schema: schema, db: db}, nil
-}
-
-// Up migrates the database to the latest version.
-func (m *Command) Up(ctx context.Context) error {
-	return errNotImplemented
-}
-
-// Version returns the current version of the database schema.
-func (m *Command) Version(ctx context.Context) (*Version, error) {
-	return nil, errNotImplemented
-}
-
-// Force the database schema to a specific version.
-//
-// This is used to manually fix a database after a non-transactional
-// migration has failed.
-func (m *Command) Force(ctx context.Context, version int) error {
-	return errNotImplemented
-}
-
-// Goto migrates up or down to specified version.
-//
-// If version is zero, then all down migrations are applied
-// to result in an empty database.
-func (m *Command) Goto(ctx context.Context, version int) error {
-	return errNotImplemented
-}
-
-// Versions lists all of the database schema versions.
-func (m *Command) Versions(ctx context.Context) ([]*Version, error) {
-	return nil, errNotImplemented
+	ID        int64      // Database schema version number
+	AppliedAt *time.Time // Time migration was applied, or nil if not applied
+	Failed    bool       // Did migration fail
+	Locked    bool       // Is version locked (prevent down migration)
+	Up        string     // SQL for up migration, or "<go-func>" if go function
+	Down      string     // SQL for down migration or "<go-func>"" if a go function
 }
