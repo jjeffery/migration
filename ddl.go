@@ -21,9 +21,9 @@ const (
 var (
 	// allDDLVerbs is the set of all ddlVerb values.
 	allDDLVerbs = map[ddlVerb]struct{}{
-		ddlVerbAlter:  struct{}{},
-		ddlVerbCreate: struct{}{},
-		ddlVerbDrop:   struct{}{},
+		ddlVerbAlter:  {},
+		ddlVerbCreate: {},
+		ddlVerbDrop:   {},
 	}
 )
 
@@ -345,7 +345,6 @@ func newStatements(sql string) []statement {
 
 	if len(stmt) > 0 {
 		stmts = append(stmts, stmt)
-		stmt = nil
 	}
 
 	return stmts

@@ -254,20 +254,20 @@ func TestNewStatements(t *testing.T) {
 		{
 			sql: `DROP TABLE IF EXISTS t1; CREATE TABLE t1(id INT PRIMARY KEY, name TEXT);`,
 			stmts: []statement{
-				statement{"drop", "table", "if", "exists", "t1", ";"},
-				statement{"create", "table", "t1", "(", "id", "INT", "PRIMARY", "KEY", ",", "name", "TEXT", ")", ";"},
+				{"drop", "table", "if", "exists", "t1", ";"},
+				{"create", "table", "t1", "(", "id", "INT", "PRIMARY", "KEY", ",", "name", "TEXT", ")", ";"},
 			},
 		},
 		{
 			sql: "-- comment\nDROP TABLE IF EXISTS t1;",
 			stmts: []statement{
-				statement{"drop", "table", "if", "exists", "t1", ";"},
+				{"drop", "table", "if", "exists", "t1", ";"},
 			},
 		},
 		{
 			sql: "missing trailing semicolon",
 			stmts: []statement{
-				statement{"missing", "trailing", "semicolon"},
+				{"missing", "trailing", "semicolon"},
 			},
 		},
 	}
