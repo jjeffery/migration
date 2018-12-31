@@ -2,7 +2,7 @@ package migration
 
 import "fmt"
 
-// A Definition is used to define a database version, the actions
+// A Definition is used to define a database schema version, the actions
 // required to migrate up from the previous version, and the
 // actions required to migrate down to the previous version.
 type Definition struct {

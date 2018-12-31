@@ -211,6 +211,9 @@ func showCommand(ctx context.Context, f NewWorkerFunc) *cobra.Command {
 }
 
 func listCommand(ctx context.Context, f NewWorkerFunc) *cobra.Command {
+	var flags struct {
+		all bool
+	}
 	cmd := &cobra.Command{
 		Short:   "list versions",
 		Long:    "list all database versions and their status",
@@ -225,6 +228,20 @@ func listCommand(ctx context.Context, f NewWorkerFunc) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			if !flags.all {
+				// if not instructed to list all versions, just go back
+				// to the last locked version
+				var start int
+				for i := len(versions) - 1; i >= 0; i-- {
+					if versions[i].Locked {
+						start = i
+						break
+					}
+				}
+				versions = versions[start:]
+			}
+
 			w := tablewriter.NewWriter(cmd.OutOrStderr())
 			w.SetHeader([]string{"id", "applied", "status"})
 			for _, ver := range versions {
@@ -250,16 +267,17 @@ func listCommand(ctx context.Context, f NewWorkerFunc) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&flags.all, "all", "a", false, "list all versions")
 	return cmd
 }
 
 func parseVersion(s string) (migration.VersionID, error) {
 	n, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid database version: %s", s)
+		return 0, fmt.Errorf("invalid database schema version: %s", s)
 	}
 	if n < 0 {
-		return 0, fmt.Errorf("database version cannot be negative: %d", n)
+		return 0, fmt.Errorf("database schema version cannot be negative: %d", n)
 	}
 	return migration.VersionID(n), nil
 }

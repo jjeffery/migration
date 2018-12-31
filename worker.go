@@ -3,6 +3,7 @@ package migration
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -114,8 +115,12 @@ func (m *Worker) Version(ctx context.Context, id VersionID) (*Version, error) {
 // migration has failed.
 func (m *Worker) Force(ctx context.Context, id VersionID) error {
 	var err error
-	if err = m.checkVersion(id); err != nil {
-		return err
+
+	// a version id of zero is permitted for force
+	if id != 0 {
+		if err = m.checkVersion(id); err != nil {
+			return err
+		}
 	}
 	if err = m.init(ctx); err != nil {
 		return err
@@ -130,29 +135,32 @@ func (m *Worker) Force(ctx context.Context, id VersionID) error {
 			return err
 		}
 
-		var found bool
-		for _, plan := range vs.applied {
-			if plan.def.id == id {
-				found = true
-				break
+		if id != 0 {
+			var found bool
+			for _, plan := range vs.applied {
+				if plan.def.id == id {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				return fmt.Errorf("cannot force unapplied version id=%d", id)
 			}
 		}
 
-		if !found {
-			return fmt.Errorf("cannot force unapplied version id=%d", id)
-		}
-
-		for _, ver := range vs.versions {
+		for _, plan := range vs.applied {
+			ver := vs.vmap[plan.def.id]
 			if ver.ID > id {
-				if err = m.drv.DeleteVersion(ctx, tx, m.tableName(), id); err != nil {
+				if err = m.drv.DeleteVersion(ctx, tx, m.tableName(), ver.ID); err != nil {
 					return err
 				}
-				m.log(fmt.Sprintf("deleted database version id=%d", id))
+				m.log(fmt.Sprintf("deleted database schema version id=%d", ver.ID))
 			} else if ver.Failed {
-				if err = m.drv.SetVersionFailed(ctx, tx, m.tableName(), id, false); err != nil {
+				if err = m.drv.SetVersionFailed(ctx, tx, m.tableName(), ver.ID, false); err != nil {
 					return err
 				}
-				m.log(fmt.Sprintf("cleared database version failure id=%d", id))
+				m.log(fmt.Sprintf("cleared database schema version failure id=%d", id))
 			}
 		}
 
@@ -161,6 +169,8 @@ func (m *Worker) Force(ctx context.Context, id VersionID) error {
 	if err != nil {
 		return err
 	}
+
+	m.finished(ctx, "database schema version forced")
 
 	return nil
 }
@@ -211,6 +221,8 @@ func (m *Worker) lockHelper(ctx context.Context, id VersionID, verb string, lock
 		return err
 	}
 
+	m.log(fmt.Sprintf("%s version=%d", verb, id))
+
 	return nil
 }
 
@@ -245,7 +257,7 @@ func (m *Worker) Versions(ctx context.Context) ([]*Version, error) {
 		return versions, err
 	}
 	err := m.transact(ctx, func(tx *sql.Tx) error {
-		vs, err := m.getVersionSummary(ctx, tx)
+		vs, err := m.getVersionSummaryAllowFailed(ctx, tx)
 		if err != nil {
 			return err
 		}
@@ -291,6 +303,8 @@ func (m *Worker) finished(ctx context.Context, msg string) error {
 			if version.Failed {
 				args = append(args, "status=failed")
 			}
+		} else {
+			args = append(args, "version=0")
 		}
 		m.log(args...)
 		return nil
@@ -663,7 +677,7 @@ func (vs *versionSummary) checkLocked(id VersionID) error {
 			break
 		}
 		if vs.vmap[applied.def.id].Locked {
-			return fmt.Errorf("database version locked id=%d", applied.def.id)
+			return fmt.Errorf("database schema version locked id=%d", applied.def.id)
 		}
 	}
 	return nil
@@ -676,7 +690,7 @@ func (m *Worker) getVersionSummary(ctx context.Context, tx *sql.Tx) (*versionSum
 	}
 	for _, v := range vs.versions {
 		if v.Failed {
-			return nil, fmt.Errorf("%d: previously failed", v.ID)
+			return nil, errors.New("previously failed")
 		}
 	}
 	return vs, nil
