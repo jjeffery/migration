@@ -40,15 +40,13 @@ type dbObjectType string
 
 // dbObjectType values
 const (
-	dbObjectTypeDomain    = dbObjectType("domain")
-	dbObjectTypeFunction  = dbObjectType("function")
-	dbObjectTypeIndex     = dbObjectType("index")
-	dbObjectTypeProcedure = dbObjectType("procedure")
-	dbObjectTypeSequence  = dbObjectType("sequence")
-	dbObjectTypeTable     = dbObjectType("table")
-	dbObjectTypeTrigger   = dbObjectType("trigger")
-	dbObjectTypeType      = dbObjectType("type")
-	dbObjectTypeView      = dbObjectType("view")
+	dbObjectTypeDomain   = dbObjectType("domain")
+	dbObjectTypeIndex    = dbObjectType("index")
+	dbObjectTypeSequence = dbObjectType("sequence")
+	dbObjectTypeTable    = dbObjectType("table")
+	dbObjectTypeTrigger  = dbObjectType("trigger")
+	dbObjectTypeType     = dbObjectType("type")
+	dbObjectTypeView     = dbObjectType("view")
 )
 
 // dbObjectType variables
@@ -56,15 +54,13 @@ var (
 	// allDBObjectTypes is the set of all db object types mapped to
 	// a boolean indicating whether it is restorable
 	allDBObjectTypes = map[dbObjectType]bool{
-		dbObjectTypeDomain:    false,
-		dbObjectTypeFunction:  true,
-		dbObjectTypeIndex:     false,
-		dbObjectTypeProcedure: true,
-		dbObjectTypeSequence:  false,
-		dbObjectTypeTable:     false,
-		dbObjectTypeTrigger:   true,
-		dbObjectTypeType:      false,
-		dbObjectTypeView:      true,
+		dbObjectTypeDomain:   false,
+		dbObjectTypeIndex:    false,
+		dbObjectTypeSequence: false,
+		dbObjectTypeTable:    false,
+		dbObjectTypeTrigger:  false,
+		dbObjectTypeType:     false,
+		dbObjectTypeView:     true,
 	}
 )
 
@@ -189,6 +185,15 @@ func mergeCreateTable(src ddlActions) ddlActions {
 					modified = true
 					continue
 				}
+				if next.verb == ddlVerbCreate &&
+					next.objectType == dbObjectTypeTrigger &&
+					next.schema == act.schema &&
+					next.name == act.name {
+					// found a create trigger after the create table
+					src[j] = nil
+					modified = true
+					continue
+				}
 			}
 		}
 	}
@@ -216,6 +221,7 @@ type ddlAction struct {
 	schema         string
 	name           string
 	index          string // optional index name
+	trigger        string // trigger name
 }
 
 // qualifiedName reports the name of the database object,
@@ -269,6 +275,15 @@ func newDDLAction(stmt statement) *ddlAction {
 		}
 		stmt = stmt.remove("on")
 		stmt = stmt.remove("only")
+	}
+
+	if obj.objectType == dbObjectTypeTrigger {
+		obj.trigger = stmt.get(0)
+		stmt = stmt.next()
+		for !stmt.empty() && !stmt.match("on") {
+			stmt = stmt.next()
+		}
+		stmt = stmt.next()
 	}
 
 	if stmt.get(1) == "." {
@@ -360,4 +375,15 @@ func (stmt statement) remove(lexemes ...string) statement {
 		return stmt[len(lexemes):]
 	}
 	return stmt
+}
+
+func (stmt statement) next() statement {
+	if len(stmt) > 0 {
+		return stmt[1:]
+	}
+	return stmt
+}
+
+func (stmt statement) empty() bool {
+	return len(stmt) == 0
 }

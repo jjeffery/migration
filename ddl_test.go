@@ -3,8 +3,6 @@ package migration
 import (
 	"reflect"
 	"testing"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 func TestNewDDLActions(t *testing.T) {
@@ -122,7 +120,7 @@ func TestNewDDLActions(t *testing.T) {
 
 	for tn, tt := range tests {
 		if got, want := newDDLActions(tt.sql), tt.actions; !actionsEqual(got, want) {
-			t.Errorf("%d: got=%v\nwant=%v", tn, spew.Sdump(got), spew.Sdump(want))
+			t.Errorf("%d: got=%+v\nwant=%+v", tn, got, want)
 		}
 	}
 }
@@ -137,7 +135,7 @@ func TestDDLActionShouldRestore(t *testing.T) {
 			want:    false,
 		},
 		{
-			objtype: dbObjectTypeFunction,
+			objtype: dbObjectTypeView,
 			want:    true,
 		},
 	}

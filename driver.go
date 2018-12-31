@@ -14,10 +14,10 @@ type driver interface {
 	PackageNames() []string
 	CreateMigrationsTable(ctx context.Context, db *sql.DB, tblname string) error
 	InsertVersion(ctx context.Context, tx *sql.Tx, tblname string, ver *Version) error
-	DeleteVersion(ctx context.Context, tx *sql.Tx, tblname string, id int64) error
+	DeleteVersion(ctx context.Context, tx *sql.Tx, tblname string, id VersionID) error
 	ListVersions(ctx context.Context, tx *sql.Tx, tblname string) ([]*Version, error)
-	SetVersionFailed(ctx context.Context, tx *sql.Tx, tblname string, id int64, failed bool) error
-	SetVersionLocked(ctx context.Context, tx *sql.Tx, tblname string, id int64, locked bool) error
+	SetVersionFailed(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, failed bool) error
+	SetVersionLocked(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, locked bool) error
 }
 
 var drivers = []driver{
@@ -67,7 +67,7 @@ func (w *postgres) InsertVersion(ctx context.Context, tx *sql.Tx, tblname string
 	return commonInsertVersion(ctx, tx, tblname, ver, format)
 }
 
-func (w *postgres) DeleteVersion(ctx context.Context, tx *sql.Tx, tblname string, id int64) error {
+func (w *postgres) DeleteVersion(ctx context.Context, tx *sql.Tx, tblname string, id VersionID) error {
 	format := `delete from %s where id = $1;`
 	return commonDeleteVersion(ctx, tx, tblname, id, format)
 }
@@ -76,12 +76,12 @@ func (w *postgres) ListVersions(ctx context.Context, tx *sql.Tx, tblname string)
 	return commonListVersions(ctx, tx, tblname)
 }
 
-func (w *postgres) SetVersionFailed(ctx context.Context, tx *sql.Tx, tblname string, id int64, failed bool) error {
+func (w *postgres) SetVersionFailed(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, failed bool) error {
 	format := `update %s set failed = $1 where id = $2`
 	return commonSetBool(ctx, tx, tblname, id, failed, format)
 }
 
-func (w *postgres) SetVersionLocked(ctx context.Context, tx *sql.Tx, tblname string, id int64, locked bool) error {
+func (w *postgres) SetVersionLocked(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, locked bool) error {
 	format := `update %s set locked = $1 where id = $2`
 	return commonSetBool(ctx, tx, tblname, id, locked, format)
 }
@@ -133,7 +133,7 @@ func (w *sqlite) InsertVersion(ctx context.Context, tx *sql.Tx, tblname string, 
 	return commonInsertVersion(ctx, tx, tblname, ver, format)
 }
 
-func (w *sqlite) DeleteVersion(ctx context.Context, tx *sql.Tx, tblname string, id int64) error {
+func (w *sqlite) DeleteVersion(ctx context.Context, tx *sql.Tx, tblname string, id VersionID) error {
 	format := `delete from %s where id = ?;`
 	return commonDeleteVersion(ctx, tx, tblname, id, format)
 }
@@ -142,12 +142,12 @@ func (w *sqlite) ListVersions(ctx context.Context, tx *sql.Tx, tblname string) (
 	return commonListVersions(ctx, tx, tblname)
 }
 
-func (w *sqlite) SetVersionFailed(ctx context.Context, tx *sql.Tx, tblname string, id int64, failed bool) error {
+func (w *sqlite) SetVersionFailed(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, failed bool) error {
 	format := `update %s set failed = ? where id = ?`
 	return commonSetBool(ctx, tx, tblname, id, failed, format)
 }
 
-func (w *sqlite) SetVersionLocked(ctx context.Context, tx *sql.Tx, tblname string, id int64, locked bool) error {
+func (w *sqlite) SetVersionLocked(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, locked bool) error {
 	format := `update %s set locked = ? where id = ?`
 	return commonSetBool(ctx, tx, tblname, id, locked, format)
 }
@@ -170,7 +170,7 @@ func commonInsertVersion(ctx context.Context, tx *sql.Tx, tblname string, ver *V
 	return nil
 }
 
-func commonDeleteVersion(ctx context.Context, tx *sql.Tx, tblname string, id int64, format string) error {
+func commonDeleteVersion(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, format string) error {
 	query := fmt.Sprintf(format, tblname)
 	_, err := tx.ExecContext(ctx, query, id)
 	if err != nil {
@@ -179,7 +179,7 @@ func commonDeleteVersion(ctx context.Context, tx *sql.Tx, tblname string, id int
 	return nil
 }
 
-func commonSetBool(ctx context.Context, tx *sql.Tx, tblname string, id int64, boolval bool, format string) error {
+func commonSetBool(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, boolval bool, format string) error {
 	query := fmt.Sprintf(format, tblname)
 	_, err := tx.ExecContext(ctx, query, boolval, id)
 	if err != nil {

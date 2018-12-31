@@ -8,4 +8,4 @@
 
 Package migration manages database schema migrations.
 
-This package is under construction and is not ready for production use.
+See the [Godoc](https://godoc.org/github.com/jjeffery/migration) for usage details.

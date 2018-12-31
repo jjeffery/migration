@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"os"
 
 	"github.com/jjeffery/migration"
 	_ "github.com/mattn/go-sqlite3"
@@ -20,38 +21,37 @@ func Example() {
 	// Setup logging. Don't print a timestamp so that the
 	// output can be checked at the end of this function.
 	log.SetFlags(0)
+	log.SetOutput(os.Stdout)
 
 	// Perform example operations on an SQLite, in-memory database.
 	ctx := context.Background()
-	db, err := sql.Open("sqlite3", ":memory")
+	db, err := sql.Open("sqlite3", ":memory:")
 	checkError(err)
 
-	// A command does the work, and can optionally log its progress.
-	command, err := migration.NewCommand(db, &Schema)
+	// A worker does the work, and can optionally log its progress.
+	worker, err := migration.NewWorker(db, &Schema)
 	checkError(err)
-	command.LogFunc = log.Println
+	worker.LogFunc = log.Println
 
 	// Migrate up to the latest version
-	err = command.Up(ctx)
+	err = worker.Up(ctx)
 	checkError(err)
 
 	// Migrate down
-	err = command.Goto(ctx, 4)
+	err = worker.Goto(ctx, 4)
 	checkError(err)
 
-	// Report database schema version
-	version, err := command.Version(ctx)
-	checkError(err)
-	log.Printf("database schema version=%d", version.ID)
-
-	// __Output:
+	// Output:
 	// migrated up version=1
 	// migrated up version=2
 	// migrated up version=3
 	// migrated up version=4
 	// migrated up version=5
+	// migrated up version=6
+	// migrate up finished version=6
+	// migrated down version=6
 	// migrated down version=5
-	// database schema version=4
+	// migrate goto finished version=4
 }
 
 func checkError(err error) {
@@ -74,7 +74,7 @@ func init() {
 			district text NOT NULL,
 			population integer NOT NULL
 		);
-	`)
+	`).Down(`DROP TABLE city;`)
 
 	// Version 2: down migration is automatically inferred.
 	Schema.Define(2).Up(`
@@ -95,20 +95,14 @@ func init() {
 			capital integer,
 			code2 character(2) NOT NULL
 		);
-	`)
+	`).Down(`DROP TABLE country;`)
 
-	// Version 3: down migration is provided
+	// Down migration is automatically generated and will drop the view.
 	Schema.Define(3).Up(`
-		CREATE TABLE countrylanguage (
-			countrycode character(3) NOT NULL,
-			"language" text NOT NULL,
-			isofficial boolean NOT NULL,
-			percentage real NOT NULL
-		);
-	`).Down(`
-		-- this down migration is not necessary, as the migration package
-		-- can work it out from the up SQL
-		DROP TABLE countrylanguage
+		create view city_country as 
+			select city.id, city.name, country.name as country_name
+			from city
+			inner join country on city.countrycode = country.code;
 	`)
 
 	// Contrived example of a migration implemented in Go that uses
@@ -151,4 +145,15 @@ func init() {
 				return err
 			},
 		)
+
+	// Down migration is automatically generated and will revert to
+	// the view defined in version 3.
+	Schema.Define(6).Up(`
+		drop view if exists city_country;
+
+		create view city_country as 
+			select city.id, city.name, country.name as country_name, district
+			from city
+			inner join country on city.countrycode = country.code;
+	`)
 }

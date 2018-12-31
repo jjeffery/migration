@@ -124,6 +124,24 @@ func TestSchemaErrors(t *testing.T) {
 				"3: call one of [Down DownDB DownTx]",
 			},
 		},
+		{
+			fn: func(s *Schema) {
+				s.Define(2).Up("create index i1 on t1(id);")
+				s.Define(3).Up("create index on t2(id);")
+			},
+			errs: []string{
+				"2: create index i1 on t1 needs a manual down migration",
+				"3: create index on t2 needs a manual down migration",
+			},
+		},
+		{
+			fn: func(s *Schema) {
+				s.Define(2).Up("create trigger tr1 on t1;")
+			},
+			errs: []string{
+				"2: create trigger tr1 on t1 needs a manual down migration",
+			},
+		},
 	}
 
 	for tn, tt := range tests {
@@ -146,9 +164,9 @@ func TestSchemaCannotCreateNewCommand(t *testing.T) {
 	s.Define(1)
 	s.Define(1)
 
-	// cannot create a new command when schema has errors
+	// cannot create a new worker when schema has errors
 	e1 := s.Err()
-	_, e2 := NewCommand(&sql.DB{}, &s)
+	_, e2 := NewWorker(&sql.DB{}, &s)
 
 	if !reflect.DeepEqual(e1, e2) {
 		t.Errorf("got=%v\n\nwant=%v\n", e1, e2)
@@ -187,6 +205,15 @@ func TestSchemaDerivedDownSQL(t *testing.T) {
 				"drop view v1;\ncreate view v1 as select * from t1;",
 			},
 		},
+		{
+			fn: func(s *Schema) {
+				s.Define(1).Up("create domain d1; create table t1;")
+			},
+			downSQLs: []string{
+				"drop table t1;\ndrop domain d1;\n",
+			},
+		},
+
 		/*
 			{
 				fn: func(s *Schema) {
@@ -212,5 +239,4 @@ func TestSchemaDerivedDownSQL(t *testing.T) {
 			t.Errorf("%d:\ngot=%v\bwant=%v", tn, got, want)
 		}
 	}
-
 }

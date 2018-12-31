@@ -6,7 +6,7 @@ import "fmt"
 // required to migrate up from the previous version, and the
 // actions required to migrate down to the previous version.
 type Definition struct {
-	id      int64
+	id      VersionID
 	upSQL   string
 	upDB    DBFunc
 	upTx    TxFunc
@@ -15,7 +15,7 @@ type Definition struct {
 	downTx  TxFunc
 }
 
-func newDefinition(id int64) *Definition {
+func newDefinition(id VersionID) *Definition {
 	return &Definition{
 		id: id,
 	}

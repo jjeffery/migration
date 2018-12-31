@@ -1,5 +1,4 @@
-// Package migration manages database schema migrations. This package is
-// under construction and not ready for production use.
+// Package migration manages database schema migrations.
 //
 // There many popular packages that provide database migrations, so it is
 // worth listing how this package is different.
@@ -16,15 +15,12 @@
 // the previous database schema version. It also has a "down" migration, which
 // migrates back to the previous version.
 //
-// Automatically generate down migrations
+// Automatically generate down migrations for views
 //
-// If an up migration consists of a single CREATE VIEW, CREATE TRIGGER, or
-// CREATE PROCEDURE, then a down migration is automatically generated that will
-// restore the previous version of the view, trigger or procedure.
-//
-// If an up migration consists of a single CREATE TABLE, CREATE INDEX, or
-// CREATE DOMAIN, then a down migration is  automatically generated that will
-// drop the table, index or domain.
+// When an up migration consists of a single CREATE VIEW statement (optionally
+// preceded by a DROP VIEW), then the down migration is automatically
+// generated as a CREATE VIEW for the view's previous version. If no previous
+// version exists, then the down migration is a DROP VIEW.
 //
 // Use transactions for migrations
 //
@@ -49,7 +45,9 @@
 //
 // This package does not provide a stand-alone command line utility for managing
 // database migrations. Instead it provides a simple API that can be utilized as
-// part of a project-specific CLI for database management.
+// part of a project-specific CLI for database management. The cli subdirectory
+// contains a re-usable command line command based on the "github.com/spf13/cobra"
+// package.
 //
 // Alternatives
 //
@@ -60,7 +58,6 @@ package migration
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -71,10 +68,6 @@ const (
 	// used to keep track of all applied database migrations. This name
 	// can be overridden by the Schema.MigrationsTable field.
 	DefaultMigrationsTable = "schema_migrations"
-)
-
-var (
-	errNotImplemented = errors.New("not implemented")
 )
 
 // TxFunc is a function that performs a migration, either
@@ -113,7 +106,7 @@ func (e Errors) Error() string {
 
 // Error describes a single error in the migration schema definition.
 type Error struct {
-	Version     int64
+	Version     VersionID
 	Description string
 }
 
@@ -122,9 +115,12 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("%d: %s", e.Version, e.Description)
 }
 
+// VersionID uniquely identifies a database schema version.
+type VersionID int64
+
 // Version provides information about a database schema version.
 type Version struct {
-	ID        int64      // Database schema version number
+	ID        VersionID  // Database schema version number
 	AppliedAt *time.Time // Time migration was applied, or nil if not applied
 	Failed    bool       // Did migration fail
 	Locked    bool       // Is version locked (prevent down migration)

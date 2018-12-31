@@ -9,7 +9,7 @@ import (
 // migrate to a version from the previous version, and back
 // down again.
 type migrationPlan struct {
-	id   int64
+	id   VersionID
 	def  *Definition
 	prev *migrationPlan
 	errs Errors
@@ -134,6 +134,27 @@ func (p *migrationPlan) deriveDownSQLDrop() {
 
 	for i := len(p.actions) - 1; i >= 0; i-- {
 		act := p.actions[i]
+		if act.objectType == dbObjectTypeIndex {
+			var description string
+			if act.index == "" {
+				description = fmt.Sprintf("%s %s on %s needs a manual down migration",
+					act.verb, act.objectType, act.qualifiedName())
+			} else {
+				description = fmt.Sprintf("%s %s %s on %s needs a manual down migration",
+					act.verb, act.objectType, act.index, act.qualifiedName())
+			}
+			p.errs = append(p.errs, &Error{
+				Version:     p.def.id,
+				Description: description,
+			})
+		}
+		if act.objectType == dbObjectTypeTrigger {
+			p.errs = append(p.errs, &Error{
+				Version: p.def.id,
+				Description: fmt.Sprintf("%s %s %s on %s needs a manual down migration",
+					act.verb, act.objectType, act.trigger, act.qualifiedName()),
+			})
+		}
 		stmt := fmt.Sprintf("drop %s %s;\n", act.objectType, act.qualifiedName())
 		stmts = append(stmts, stmt)
 	}
