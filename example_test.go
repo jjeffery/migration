@@ -65,7 +65,7 @@ func checkError(err error) {
 // In practice, the migrations would probably be defined in separate
 // source files, each with its own init function.
 func init() {
-	// Version 1: note that down migration is automatically inferred.
+	// Version 1
 	Schema.Define(1).Up(`
 		CREATE TABLE city (
 			id integer NOT NULL,
@@ -76,7 +76,7 @@ func init() {
 		);
 	`).Down(`DROP TABLE city;`)
 
-	// Version 2: down migration is automatically inferred.
+	// Version 2
 	Schema.Define(2).Up(`
 		CREATE TABLE country (
 			code character(3) NOT NULL,
@@ -97,7 +97,7 @@ func init() {
 		);
 	`).Down(`DROP TABLE country;`)
 
-	// Down migration is automatically generated and will drop the view.
+	// Version 3: down migration is automatically generated and will drop the view
 	Schema.Define(3).Up(`
 		create view city_country as 
 			select city.id, city.name, country.name as country_name

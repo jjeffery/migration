@@ -22,19 +22,6 @@ func newDefinition(id VersionID) *Definition {
 }
 
 // Up defines the SQL to migrate up to the version.
-//
-// If the sql contains a single statement and it is
-// one of the following SQL statements, then the
-// SQL for migrating to the previous version is automatically
-// generated.
-//  command            down migration
-//  -------            --------------
-//  CREATE TABLE       drop table
-//  CREATE INDEX       drop index
-//  CREATE DOMAIN      drop domain
-//  CREATE VIEW        revert to previous view, or drop view if none
-//  CREATE TRIGGER     revert to previous trigger, or drop trigger if none
-//  CREATE PROCEDURE   revert to previous procedure, or drop procedure if none
 func (d *Definition) Up(sql string) *Definition {
 	d.upSQL = sql
 	return d
@@ -42,8 +29,10 @@ func (d *Definition) Up(sql string) *Definition {
 
 // Down defines the SQL to migrate down to the previous version.
 //
-// The Down() method is often optional. See the Up() method for details of when
-// the SQL for the down migration is automatically generated.
+// The Down() method is optional if the corresponding Up() method
+// contains a single CREATE VIEW statement. The automatically-generated
+// down migration restores the previous version of the view, or if
+// there is no previous version then the view is dropped.
 func (d *Definition) Down(sql string) *Definition {
 	d.downSQL = sql
 	return d

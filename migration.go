@@ -35,6 +35,12 @@
 // performed, any unapplied migrations will be applied in ascending order of
 // identifer.
 //
+// Lock database schema versions
+//
+// Once a set of migrations has been applied, the database schema version can
+// be locked, which means that any attempt to migrate down past this version
+// will fail. This is useful for avoiding accidents with production database schemas.
+//
 // Embed migrations in the executable
 //
 // Migrations are written as part of the Go source code, and are embedded in the
