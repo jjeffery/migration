@@ -17,7 +17,7 @@ install:
   - go get github.com/mattn/go-sqlite3
 
 script:
-  - go test -coverprofile=profile.out -covermode=count
+  - go test -coverprofile=coverage.txt -covermode=count
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
