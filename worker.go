@@ -205,11 +205,7 @@ func (m *Worker) lockHelper(ctx context.Context, id VersionID, verb string, lock
 			return fmt.Errorf("cannot %s unapplied version id=%d", verb, id)
 		}
 
-		if err = m.drv.SetVersionLocked(ctx, tx, m.tableName(), id, lock); err != nil {
-			return err
-		}
-
-		return nil
+		return m.drv.SetVersionLocked(ctx, tx, m.tableName(), id, lock)
 	})
 	if err != nil {
 		return err
