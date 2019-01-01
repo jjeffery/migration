@@ -12,7 +12,7 @@ type timeVal struct {
 
 func (tv *timeVal) Scan(src interface{}) error {
 	if src == nil {
-		tv.Time = time.Unix(0, 0)
+		tv.Time = time.Unix(0, 0).UTC()
 		return nil
 	}
 
@@ -32,10 +32,10 @@ func (tv *timeVal) Scan(src interface{}) error {
 			}
 		}
 	case int64:
-		tv.Time = time.Unix(v, 0)
+		tv.Time = time.Unix(v, 0).UTC()
 		return nil
 	}
 
-	tv.Time = time.Unix(0, 0)
+	tv.Time = time.Unix(0, 0).UTC()
 	return nil
 }

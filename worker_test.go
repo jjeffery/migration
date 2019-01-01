@@ -38,6 +38,11 @@ func TestWorker(t *testing.T) {
 			err = worker.Up(ctx)
 			wantNoError(t, err)
 
+			// remove everything at the end of the test
+			defer func() {
+				wantNoError(t, worker.Goto(ctx, 0))
+			}()
+
 			err = worker.Down(ctx)
 			wantNoError(t, err)
 
