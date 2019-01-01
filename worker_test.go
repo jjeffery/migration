@@ -81,6 +81,7 @@ func TestWorker(t *testing.T) {
 			wantNoError(t, err)
 
 			ver, err = worker.Version(ctx, 20)
+			wantNoError(t, err)
 			if ver.AppliedAt == nil {
 				t.Fatal("got=nil, want=non-nil")
 			}
