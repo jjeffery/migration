@@ -230,8 +230,9 @@ func listCommand(ctx context.Context, f NewWorkerFunc) *cobra.Command {
 			}
 
 			if !flags.all {
-				// if not instructed to list all versions, just go back
-				// to the last locked version
+				// If not instructed to list all versions, list all
+				// unapplied versions, but only list applied versions
+				// back to the last locked version.
 				var start int
 				for i := len(versions) - 1; i >= 0; i-- {
 					if versions[i].Locked {
@@ -239,7 +240,13 @@ func listCommand(ctx context.Context, f NewWorkerFunc) *cobra.Command {
 						break
 					}
 				}
-				versions = versions[start:]
+				var vcopy []*migration.Version
+				for i, ver := range versions {
+					if i >= start || ver.AppliedAt == nil {
+						vcopy = append(vcopy, ver)
+					}
+				}
+				versions = vcopy
 			}
 
 			w := tablewriter.NewWriter(cmd.OutOrStderr())
