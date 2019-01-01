@@ -9,3 +9,23 @@
 Package migration manages database schema migrations.
 
 See the [Godoc](https://godoc.org/github.com/jjeffery/migration) for usage details.
+
+## Features
+
+* Write database migrations in SQL or Go
+* Supports SQLite and Postgres databases (support for MySQL and MSSQL planned)
+* Migrations are performed in a transaction where possible
+* Up/Down migrations for applying and rolling back migrations
+* Automatic generation of down migrations for views
+* Support for writing migrations on separate branches
+* Migrations are embedded in the executable
+* CLI package for easy integration with programs using [cobra](https://github.com/spf13/cobra)
+
+## Installation
+```bash
+go get -u github.com/jjeffery/migration
+```
+
+## Example Usage
+
+See the [Godoc](https://godoc.org/github.com/jjeffery/migration#example-package) package example.
