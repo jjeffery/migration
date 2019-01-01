@@ -231,8 +231,11 @@ func (m *Worker) lockHelper(ctx context.Context, id VersionID, verb string, lock
 // If id is zero, then all down migrations are applied
 // to result in an empty database.
 func (m *Worker) Goto(ctx context.Context, id VersionID) error {
-	if err := m.checkVersion(id); err != nil {
-		return err
+	// id=0 is a special case, remove all migrations
+	if id != 0 {
+		if err := m.checkVersion(id); err != nil {
+			return err
+		}
 	}
 	if err := m.init(ctx); err != nil {
 		return err
