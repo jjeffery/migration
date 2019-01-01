@@ -29,11 +29,11 @@
 //
 // Write migrations on separate branches
 //
-// Migration identifiers are positive 64-bit integers. Migrations can be defined
-// in different VCS branches using an arbitrary naming convention, such as the
-// current date and time. When branches are merged and a database migration is
-// performed, any unapplied migrations will be applied in ascending order of
-// identifer.
+// Database schema versions are identified by positive 64-bit integers. Migrations
+// can be defined in different VCS branches using an arbitrary naming convention,
+// such as the current date and time. When branches are merged and a database migration
+// is performed, any unapplied migrations will be applied in ascending order of
+// database schema version.
 //
 // Lock database schema versions
 //

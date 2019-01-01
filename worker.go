@@ -80,7 +80,7 @@ func (m *Worker) Down(ctx context.Context) error {
 	return nil
 }
 
-// Version returns the current version of the database schema.
+// Version returns details of the specified version.
 func (m *Worker) Version(ctx context.Context, id VersionID) (*Version, error) {
 	var err error
 	if err = m.checkVersion(id); err != nil {
