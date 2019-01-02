@@ -46,6 +46,10 @@ func (p *migrationPlan) deriveDownSQL() {
 			} else {
 				shouldDrop++
 			}
+		} else if act.verb == ddlVerbDrop {
+			if act.objectType.ShouldRestore() {
+				shouldRestore++
+			}
 		}
 	}
 
@@ -56,7 +60,7 @@ func (p *migrationPlan) deriveDownSQL() {
 			if act.objectType.ShouldRestore() {
 				p.errs = append(p.errs, &Error{
 					Version:     p.def.id,
-					Description: fmt.Sprintf("create %s %s in its own migration", act.objectType, act.qualifiedName()),
+					Description: fmt.Sprintf("%s %s %s in its own migration", act.verb, act.objectType, act.qualifiedName()),
 				})
 			}
 		}
@@ -73,8 +77,12 @@ func (p *migrationPlan) deriveDownSQL() {
 	}
 	{
 		var found bool
-		// cannot reverse a drop or an alter
+		// cannot reverse a drop table or an alter
 		for _, act := range p.actions {
+			if act.verb == ddlVerbDrop && act.objectType.ShouldRestore() {
+				// can reverse a drop view
+				continue
+			}
 			if act.verb != ddlVerbCreate {
 				found = true
 				p.errs = append(p.errs, &Error{
