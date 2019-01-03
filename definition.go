@@ -24,7 +24,6 @@ func newDefinition(id VersionID) *Definition {
 }
 
 // Up defines the SQL to migrate up to the version.
-//
 // Calling this function is identical to calling:
 //  UpAction(Command(sql))
 func (d *Definition) Up(sql string) *Definition {
@@ -36,16 +35,15 @@ func (d *Definition) Up(sql string) *Definition {
 // UpAction defines the action to perform during the migration up
 // to this database schema version.
 //
-// The Up() method handles the most common case for up migrations.
+// The Up() method handles the most common case for "up" migrations.
 func (d *Definition) UpAction(a Action) *Definition {
 	d.upCount++
 	d.upAction = a
 	return d
 }
 
-// Down defines the SQL to migrate down to the previous version.
-//
-// Calling this function is identical to calling:
+// Down defines the SQL/DDL to migrate down to the previous version.
+// Calling this method is identical to calling:
 //  DownAction(Command(sql))
 func (d *Definition) Down(sql string) *Definition {
 	d.downCount++
@@ -56,7 +54,7 @@ func (d *Definition) Down(sql string) *Definition {
 // DownAction defines the action to perform during the migration down
 // from this database schema version.
 //
-// The Down() method handles the most common case for up migrations.
+// The Down() method handles the most common case for "down" migrations.
 func (d *Definition) DownAction(a Action) *Definition {
 	d.downCount++
 	d.downAction = a
@@ -137,10 +135,8 @@ func TxFunc(f func(context.Context, *sql.Tx) error) Action {
 }
 
 // Replay returns an action that replays the up migration for the
-// specified database version.
-//
-// Replay actions are useful for restoring views, functions and
-// stored procedures
+// specified database version. Replay actions are useful for
+// restoring views, functions and stored procedures.
 func Replay(id VersionID) Action {
 	return func(a *action) {
 		a.replayUp = &id
