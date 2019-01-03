@@ -23,6 +23,7 @@ type driver interface {
 var drivers = []driver{
 	&postgres{},
 	&sqlite{},
+	&mysql{},
 }
 
 func findDriver(db *sql.DB) (driver, error) {
@@ -148,6 +149,50 @@ func (w *sqlite) SetVersionFailed(ctx context.Context, tx *sql.Tx, tblname strin
 }
 
 func (w *sqlite) SetVersionLocked(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, locked bool) error {
+	format := `update %s set locked = ? where id = ?`
+	return commonSetBool(ctx, tx, tblname, id, locked, format)
+}
+
+type mysql struct{}
+
+func (w *mysql) PackageNames() []string {
+	return []string{"mysql"}
+}
+
+func (w *mysql) SupportsTransactionalDDL() bool {
+	return false
+}
+
+func (w *mysql) CreateMigrationsTable(ctx context.Context, db *sql.DB, tblname string) error {
+	format := `create table if not exists %s` +
+		`(id integer primary key` +
+		`,applied_at datetime not null` +
+		`,failed integer not null` +
+		`,locked integer not null` +
+		`);`
+	return commonCreateMigrationsTable(ctx, db, tblname, format)
+}
+
+func (w *mysql) InsertVersion(ctx context.Context, tx *sql.Tx, tblname string, ver *Version) error {
+	format := `insert into %s(id,applied_at,failed,locked) values(?,?,?,?);`
+	return commonInsertVersion(ctx, tx, tblname, ver, format)
+}
+
+func (w *mysql) DeleteVersion(ctx context.Context, tx *sql.Tx, tblname string, id VersionID) error {
+	format := `delete from %s where id = ?;`
+	return commonDeleteVersion(ctx, tx, tblname, id, format)
+}
+
+func (w *mysql) ListVersions(ctx context.Context, tx *sql.Tx, tblname string) ([]*Version, error) {
+	return commonListVersions(ctx, tx, tblname)
+}
+
+func (w *mysql) SetVersionFailed(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, failed bool) error {
+	format := `update %s set failed = ? where id = ?`
+	return commonSetBool(ctx, tx, tblname, id, failed, format)
+}
+
+func (w *mysql) SetVersionLocked(ctx context.Context, tx *sql.Tx, tblname string, id VersionID, locked bool) error {
 	format := `update %s set locked = ? where id = ?`
 	return commonSetBool(ctx, tx, tblname, id, locked, format)
 }

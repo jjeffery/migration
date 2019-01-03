@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -22,6 +23,10 @@ func TestWorker(t *testing.T) {
 		{
 			driver: "postgres",
 			dsn:    "postgres://migration_test:migration_test@localhost/migration_test?sslmode=disable",
+		},
+		{
+			driver: "mysql",
+			dsn:    "migration_test:migration_test@tcp(localhost)/migration_test",
 		},
 	}
 
@@ -125,8 +130,6 @@ func newTestSchema() *Schema {
 			id int primary key,
 			name varchar(30)
 		);
-
-		create index i1 on t1(name);
 	`).Down(`
 		drop table t1;
 	`)
@@ -136,8 +139,6 @@ func newTestSchema() *Schema {
 			id int primary key,
 			name varchar(30)
 		);
-
-		create index i2 on t2(name);
 	`).Down(`
 		drop table t2;
 	`)

@@ -5,11 +5,15 @@ go:
 
 services:
   - postgresql
+  - mysql
 
 before_script:
   - psql -c "create database migration_test;" -U postgres
   - psql -c "create user migration_test with password 'migration_test';" -U postgres
   - psql -c "grant all privileges on database migration_test to migration_test;" -U postgres
+  - mysql -e "create database migration_test;"
+  - mysql -e "create user 'migration_test'@'localhost' identified by 'migration_test';"
+  - mysql -e "grant all privileges on migration_test.* to 'migration_test'@'localhost';"
 
 install:
   - go get github.com/lib/pq

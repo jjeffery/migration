@@ -13,7 +13,7 @@ See the [Godoc](https://godoc.org/github.com/jjeffery/migration) for usage detai
 ## Features
 
 * Write database migrations in SQL or Go
-* Supports SQLite and Postgres databases (support for MySQL and MSSQL planned)
+* Supports SQLite, Postgres and MySQL databases (support for MSSQL planned)
 * Migrations are performed in a transaction where possible
 * Up/Down migrations for applying and rolling back migrations
 * Replay previous migrations for restoring views, functions and stored procedures
