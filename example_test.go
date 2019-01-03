@@ -3,6 +3,7 @@ package migration_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
@@ -56,7 +57,8 @@ func Example() {
 
 func checkError(err error) {
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("error:", err)
+		//log.Fatal(err)
 	}
 }
 
@@ -65,89 +67,77 @@ func checkError(err error) {
 // In practice, the migrations would probably be defined in separate
 // source files, each with its own init function.
 func init() {
-	// Version 1
 	Schema.Define(1).Up(`
-		CREATE TABLE city (
-			id integer NOT NULL,
-			name text NOT NULL,
-			countrycode character(3) NOT NULL,
-			district text NOT NULL,
-			population integer NOT NULL
+		create table city (
+			id integer not null,
+			name text not null,
+			countrycode character(3) not null,
+			district text not null,
+			population integer not null
 		);
-	`).Down(`DROP TABLE city;`)
+	`).Down(`drop table city;`)
 
-	// Version 2
 	Schema.Define(2).Up(`
-		CREATE TABLE country (
-			code character(3) NOT NULL,
-			name text NOT NULL,
-			continent text NOT NULL,
-			region text NOT NULL,
-			surfacearea real NOT NULL,
+		create table country (
+			code character(3) not null,
+			name text not null,
+			continent text not null,
+			region text not null,
+			surfacearea real not null,
 			indepyear smallint,
-			population integer NOT NULL,
+			population integer not null,
 			lifeexpectancy real,
 			gnp numeric(10,2),
 			gnpold numeric(10,2),
-			localname text NOT NULL,
-			governmentform text NOT NULL,
+			localname text not null,
+			governmentform text not null,
 			headofstate text,
 			capital integer,
-			code2 character(2) NOT NULL
+			code2 character(2) not null
 		);
-	`).Down(`DROP TABLE country;`)
+	`).Down(`drop table country;`)
 
-	// Version 3: down migration is automatically generated and will drop the view
 	Schema.Define(3).Up(`
+		-- drop view first so we can replay this migration, see version 6
+		drop view if exists city_country;
+
 		create view city_country as 
 			select city.id, city.name, country.name as country_name
 			from city
 			inner join country on city.countrycode = country.code;
-	`)
+	`).Down(`drop view city_country`)
 
 	// Contrived example of a migration implemented in Go that uses
 	// a database transaction.
-	Schema.Define(4).
-		UpTx(
-			func(ctx context.Context, tx *sql.Tx) error {
-				_, err := tx.ExecContext(ctx, `
+	Schema.Define(4).UpAction(migration.TxFunc(func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 				insert into city(id, name, countrycode, district, population)
 				values(?, ?, ?, ?, ?)`,
-					1, "Kabul", "AFG", "Kabol", 1780000,
-				)
-				return err
-			},
-		).
-		DownTx(
-			func(ctx context.Context, tx *sql.Tx) error {
-				_, err := tx.ExecContext(ctx, `delete from city where id = ?`, 1)
-				return err
-			},
+			1, "Kabul", "AFG", "Kabol", 1780000,
 		)
+		return err
+	})).DownAction(migration.TxFunc(func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `delete from city where id = ?`, 1)
+		return err
+	}))
 
 	// Contrived example of a migration implemented in Go that does
 	// not use a database transaction. If this migration fails, the
 	// database will require manual intervention.
-	Schema.Define(5).
-		UpDB(
-			func(ctx context.Context, db *sql.DB) error {
-				_, err := db.ExecContext(ctx, `
+	Schema.Define(5).UpAction(migration.DBFunc(func(ctx context.Context, db *sql.DB) error {
+		_, err := db.ExecContext(ctx, `
 				insert into city(id, name, countrycode, district, population)
 				values(?, ?, ?, ?, ?)`,
-					2, "Qandahar", "AFG", "Qandahar", 237500,
-				)
-				return err
-			},
-		).
-		DownDB(
-			func(ctx context.Context, db *sql.DB) error {
-				_, err := db.ExecContext(ctx, `delete from city where id = ?`, 2)
-				return err
-			},
+			2, "Qandahar", "AFG", "Qandahar", 237500,
 		)
+		return err
+	})).DownAction(migration.DBFunc(func(ctx context.Context, db *sql.DB) error {
+		_, err := db.ExecContext(ctx, `delete from city where id = ?`, 2)
+		return err
+	}))
 
-	// Down migration is automatically generated and will revert to
-	// the view defined in version 3.
+	// This migration alters the view, and the down migration reverts to the
+	// previous view definition.
 	Schema.Define(6).Up(`
 		drop view if exists city_country;
 
@@ -155,5 +145,5 @@ func init() {
 			select city.id, city.name, country.name as country_name, district
 			from city
 			inner join country on city.countrycode = country.code;
-	`)
+	`).DownAction(migration.Replay(3))
 }

@@ -1,31 +1,34 @@
-// Package migration manages database schema migrations.
-//
-// There many popular packages that provide database migrations, so it is
-// worth listing how this package is different.
+// Package migration manages database schema migrations. There many popular
+// packages that provide database migrations, so it is worth listing how this
+// package is different.
 //
 // Write migrations in SQL or Go
 //
-// Database migrations are written in SQL using the dialect specific to the
-// target database. Most of the time this is sufficient, but there are times
-// when it is more convenient to specify a migration using Go code.
+// Database migrations are usually written in SQL/DDL using the dialect specific
+// to the target database. Most of the time this is sufficient, but there are
+// times when it is more convenient to specify a migration using Go code.
 //
 // Migrate up and migrate down
 //
 // Each database schema version has an "up" migration, which migrates up from
 // the previous database schema version. It also has a "down" migration, which
-// migrates back to the previous version.
-//
-// Automatically generate down migrations for views
-//
-// When an up migration consists of a single CREATE VIEW statement (optionally
-// preceded by a DROP VIEW), then the down migration is automatically
-// generated as a CREATE VIEW for the view's previous version. If no previous
-// version exists, then the down migration is a DROP VIEW.
+// should revert the changes applied in the "up" migration.
 //
 // Use transactions for migrations
 //
 // Database migrations are performed within a transaction if the database
 // supports it.
+//
+// Replay previous migrations to restore views, stored procedures, etc
+//
+// When a migration drops and recreates a view, it is necessary to restore the
+// previous version of the view in the down migration, which results in duplicated
+// code. (This problem also exists for stored procedures, functions, triggers, etc).
+//
+// This package provides a simple solution in the form af defining migrations as
+// a replay of a previous "up" migration. The "down" migration for a create view can
+// be defined as a replay of the prevous "up" migration that created the previous version
+// of the view.
 //
 // Write migrations on separate branches
 //
@@ -62,8 +65,6 @@
 package migration
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -75,24 +76,6 @@ const (
 	// can be overridden by the Schema.MigrationsTable field.
 	DefaultMigrationsTable = "schema_migrations"
 )
-
-// TxFunc is a function that performs a migration, either
-// up to the next version or down to the previous version.
-//
-// The migration is performed inside a transaction, so
-// if the migration fails for any reason, the database will
-// rollback to its state at the start version.
-type TxFunc func(context.Context, *sql.Tx) error
-
-// DBFunc is a function that performs a migration, either up
-// to the next version or down to the previous version.
-//
-// The migration is performed outside of a transaction, so
-// if the migration fails for any reason, the database will
-// require manual repair before any more migrations can proceed.
-// If possible, use TxFunc to perform migrations within a
-// database transaction.
-type DBFunc func(context.Context, *sql.DB) error
 
 // Errors describes one or more errors in the migration
 // schema definition. If the Schema.Err() method reports a

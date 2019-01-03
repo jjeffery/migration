@@ -99,12 +99,14 @@ func TestWorker(t *testing.T) {
 }
 
 func wantNoError(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func wantError(t *testing.T, err error, contains string) {
+	t.Helper()
 	if err == nil {
 		t.Fatal("want error, got nil")
 	}
@@ -125,6 +127,8 @@ func newTestSchema() *Schema {
 		);
 
 		create index i1 on t1(name);
+	`).Down(`
+		drop table t1;
 	`)
 
 	schema.Define(20).Up(`
@@ -134,6 +138,8 @@ func newTestSchema() *Schema {
 		);
 
 		create index i2 on t2(name);
+	`).Down(`
+		drop table t2;
 	`)
 
 	return &schema

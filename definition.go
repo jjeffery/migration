@@ -1,18 +1,20 @@
 package migration
 
-import "fmt"
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
 
-// A Definition is used to define a database schema version, the actions
+// A Definition is used to define a database schema version, the action
 // required to migrate up from the previous version, and the
-// actions required to migrate down to the previous version.
+// action required to migrate down to the previous version.
 type Definition struct {
-	id      VersionID
-	upSQL   string
-	upDB    DBFunc
-	upTx    TxFunc
-	downSQL string
-	downDB  DBFunc
-	downTx  TxFunc
+	id         VersionID
+	upAction   Action
+	upCount    int
+	downAction Action
+	downCount  int
 }
 
 func newDefinition(id VersionID) *Definition {
@@ -22,67 +24,42 @@ func newDefinition(id VersionID) *Definition {
 }
 
 // Up defines the SQL to migrate up to the version.
+//
+// Calling this function is identical to calling:
+//  UpAction(Command(sql))
 func (d *Definition) Up(sql string) *Definition {
-	d.upSQL = sql
+	d.upCount++
+	d.upAction = Command(sql)
+	return d
+}
+
+// UpAction defines the action to perform during the migration up
+// to this database schema version.
+//
+// The Up() method handles the most common case for up migrations.
+func (d *Definition) UpAction(a Action) *Definition {
+	d.upCount++
+	d.upAction = a
 	return d
 }
 
 // Down defines the SQL to migrate down to the previous version.
 //
-// The Down() method is optional if the corresponding Up() method
-// contains a single CREATE VIEW statement. The automatically-generated
-// down migration restores the previous version of the view, or if
-// there is no previous version then the view is dropped.
+// Calling this function is identical to calling:
+//  DownAction(Command(sql))
 func (d *Definition) Down(sql string) *Definition {
-	d.downSQL = sql
+	d.downCount++
+	d.downAction = Command(sql)
 	return d
 }
 
-// UpTx defines a function that implements the migration up from the
-// previous version.
+// DownAction defines the action to perform during the migration down
+// from this database schema version.
 //
-// The up migration is performed inside a transaction,
-// so the if the migration fails for any reason, the database will
-// rollback to its state at the start version.
-func (d *Definition) UpTx(up TxFunc) *Definition {
-	d.upTx = up
-	return d
-}
-
-// DownTx defines a function that implements the migration down to
-// the previous version.
-//
-// The down migration is performed inside a transaction,
-// so the if the migration fails for any reason, the database will
-// rollback to its state at the start version.
-func (d *Definition) DownTx(down TxFunc) *Definition {
-	d.downTx = down
-	return d
-}
-
-// UpDB defines a function that implements the migration up from the
-// previous version.
-//
-// The up migration is performed outside of a transaction, so
-// if the migration fails for any reason, the database will
-// require manual repair before any more migrations can proceed.
-// If possible, use UpTx to perform migrations within a
-// database transaction.
-func (d *Definition) UpDB(up DBFunc) *Definition {
-	d.upDB = up
-	return d
-}
-
-// DownDB defines a function that implements the migration down to
-// the previous version.
-//
-// The down migration is performed outside of a transaction, so
-// if the migration fails for any reason, the database will
-// require manual repair before any more migrations can proceed.
-// If possible, use DownTx to perform migrations within a
-// database transaction.
-func (d *Definition) DownDB(down DBFunc) *Definition {
-	d.downDB = down
+// The Down() method handles the most common case for up migrations.
+func (d *Definition) DownAction(a Action) *Definition {
+	d.downCount++
+	d.downAction = a
 	return d
 }
 
@@ -96,45 +73,76 @@ func (d *Definition) errs() Errors {
 		})
 	}
 
-	{
-		var upMethods []string
-		if d.upSQL != "" {
-			upMethods = append(upMethods, "Up")
-		}
-		if d.upDB != nil {
-			upMethods = append(upMethods, "UpDB")
-		}
-		if d.upTx != nil {
-			upMethods = append(upMethods, "UpTx")
-		}
-		if len(upMethods) > 1 {
-			addError(fmt.Sprintf("call only one of %v", upMethods))
-		}
-		if len(upMethods) == 0 {
-			addError("call one of [Up UpDB UpTx]")
-		}
+	if d.upCount == 0 {
+		addError("up migration not defined")
+	}
+	if d.upCount > 1 {
+		addError(fmt.Sprintf("up migration defined %d times", d.upCount))
 	}
 
-	{
-		downMethods := d.downMethods()
-		if len(downMethods) > 1 {
-			addError(fmt.Sprintf("call only one of %v", downMethods))
-		}
+	if d.downCount == 0 {
+		addError("down migration not defined")
+	}
+	if d.downCount > 1 {
+		addError(fmt.Sprintf("down migration defined %d times", d.downCount))
 	}
 
 	return errs
 }
 
-func (d *Definition) downMethods() []string {
-	var downMethods []string
-	if d.downSQL != "" {
-		downMethods = append(downMethods, "Down")
+type action struct {
+	sql      string
+	dbFunc   func(context.Context, *sql.DB) error
+	txFunc   func(context.Context, *sql.Tx) error
+	replayUp *VersionID
+}
+
+// An Action defines the action performed during an up migration or
+// a down migration.
+type Action func(*action)
+
+// Command returns an action that executes the SQL/DDL command.
+//
+// Command is by far the most common migration action. The Up()
+// and Down() methods provide a quick way to define migration
+// actions when they are SQL/DDL commands.
+func Command(sql string) Action {
+	return func(a *action) {
+		a.sql = sql
 	}
-	if d.downDB != nil {
-		downMethods = append(downMethods, "DownDB")
+}
+
+// DBFunc returns an action that executes the function f.
+//
+// The migration is performed outside of a transaction, so
+// if the migration fails for any reason, the database will
+// require manual repair before any more migrations can proceed.
+// If possible, use TxFunc to perform migrations within a
+// database transaction.
+func DBFunc(f func(context.Context, *sql.DB) error) Action {
+	return func(a *action) {
+		a.dbFunc = f
 	}
-	if d.downTx != nil {
-		downMethods = append(downMethods, "DownTx")
+}
+
+// TxFunc returns an action that executes function f.
+//
+// The migration is performed inside a transaction, so
+// if the migration fails for any reason, the database will
+// rollback to its state at the start version.
+func TxFunc(f func(context.Context, *sql.Tx) error) Action {
+	return func(a *action) {
+		a.txFunc = f
 	}
-	return downMethods
+}
+
+// Replay returns an action that replays the up migration for the
+// specified database version.
+//
+// Replay actions are useful for restoring views, functions and
+// stored procedures
+func Replay(id VersionID) Action {
+	return func(a *action) {
+		a.replayUp = &id
+	}
 }

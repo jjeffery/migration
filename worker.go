@@ -138,7 +138,7 @@ func (m *Worker) Force(ctx context.Context, id VersionID) error {
 		if id != 0 {
 			var found bool
 			for _, plan := range vs.applied {
-				if plan.def.id == id {
+				if plan.id == id {
 					found = true
 					break
 				}
@@ -150,7 +150,7 @@ func (m *Worker) Force(ctx context.Context, id VersionID) error {
 		}
 
 		for _, plan := range vs.applied {
-			ver := vs.vmap[plan.def.id]
+			ver := vs.vmap[plan.id]
 			if ver.ID > id {
 				if err = m.drv.DeleteVersion(ctx, tx, m.tableName(), ver.ID); err != nil {
 					return err
@@ -205,7 +205,7 @@ func (m *Worker) lockHelper(ctx context.Context, id VersionID, verb string, lock
 
 		var found bool
 		for _, plan := range vs.applied {
-			if plan.def.id == id {
+			if plan.id == id {
 				found = true
 				break
 			}
@@ -298,7 +298,7 @@ func (m *Worker) finished(ctx context.Context, msg string) error {
 		args := []interface{}{msg}
 		if len(vs.applied) > 0 {
 			plan := vs.applied[0]
-			version := vs.vmap[plan.def.id]
+			version := vs.vmap[plan.id]
 			args = append(args, fmt.Sprintf("version=%d", version.ID))
 			if version.Locked {
 				args = append(args, "status=locked")
@@ -349,7 +349,7 @@ func (m *Worker) gotoOne(ctx context.Context, id VersionID) (more bool, err erro
 		}
 		// count down migrations
 		for _, applied := range vs.applied {
-			if applied.def.id <= id {
+			if applied.id <= id {
 				break
 			}
 			downCount++
@@ -357,7 +357,7 @@ func (m *Worker) gotoOne(ctx context.Context, id VersionID) (more bool, err erro
 
 		// count up migrations
 		for _, unapplied := range vs.unapplied {
-			if unapplied.def.id > id {
+			if unapplied.id > id {
 				break
 			}
 			upCount++
@@ -410,39 +410,39 @@ func (m *Worker) upOne(ctx context.Context) (more bool, err error) {
 		appliedAt := time.Now()
 		more = len(vs.unapplied) > 1
 
-		if upTx := plan.def.upTx; upTx != nil {
+		if upTx := plan.up.txFunc; upTx != nil {
 			// Regardless of whether the driver supports transactional
 			// migrations, this migration uses a transaction.
 			if err = upTx(ctx, tx); err != nil {
-				return wrapf(err, "%d", plan.def.id)
+				return wrapf(err, "%d", plan.id)
 			}
 		} else {
-			if !m.drv.SupportsTransactionalDDL() || plan.def.upDB != nil {
+			if !m.drv.SupportsTransactionalDDL() || plan.up.dbFunc != nil {
 				// Either the driver does not support transactional
 				// DDL, or the up migration has been specified using
 				// a non-transactional function.
-				id = plan.def.id
+				id = plan.id
 				noTx = true
 				return nil
 			}
-			_, err = tx.ExecContext(ctx, plan.def.upSQL)
+			_, err = tx.ExecContext(ctx, plan.up.sql)
 			if err != nil {
-				return wrapf(err, "%d", plan.def.id)
+				return wrapf(err, "%d", plan.id)
 			}
 		}
 
 		// At this point the migration has been performed in a transaction,
 		// so update the schema migrations table.
 		version := &Version{
-			ID:        plan.def.id,
+			ID:        plan.id,
 			AppliedAt: &appliedAt,
 		}
 
 		if err = m.drv.InsertVersion(ctx, tx, m.tableName(), version); err != nil {
-			return wrapf(err, "%d", plan.def.id)
+			return wrapf(err, "%d", plan.id)
 		}
 
-		m.log(fmt.Sprintf("migrated up version=%d", plan.def.id))
+		m.log(fmt.Sprintf("migrated up version=%d", plan.id))
 
 		return nil
 	})
@@ -468,7 +468,7 @@ func (m *Worker) upOneNoTx(ctx context.Context, id VersionID) error {
 	)
 
 	for _, p := range m.schema.plans {
-		if p.def.id == id {
+		if p.id == id {
 			plan = p
 			break
 		}
@@ -491,12 +491,12 @@ func (m *Worker) upOneNoTx(ctx context.Context, id VersionID) error {
 		return err
 	}
 
-	if upDB := plan.def.upDB; upDB != nil {
+	if upDB := plan.up.dbFunc; upDB != nil {
 		if err = upDB(ctx, m.db); err != nil {
 			return wrapf(err, "%d", id)
 		}
 	} else {
-		_, err = m.db.ExecContext(ctx, plan.def.upSQL)
+		_, err = m.db.ExecContext(ctx, plan.up.sql)
 		if err != nil {
 			return wrapf(err, "%d", id)
 		}
@@ -536,7 +536,7 @@ func (m *Worker) downOne(ctx context.Context) (more bool, err error) {
 		plan := vs.applied[0]
 		var version *Version
 		for _, ver := range vs.versions {
-			if ver.ID == plan.def.id {
+			if ver.ID == plan.id {
 				version = ver
 				break
 			}
@@ -549,37 +549,33 @@ func (m *Worker) downOne(ctx context.Context) (more bool, err error) {
 
 		more = len(vs.applied) > 1
 
-		if downTx := plan.def.downTx; downTx != nil {
+		if downTx := plan.down.txFunc; downTx != nil {
 			// Regardless of whether the driver supports transactional
 			// migrations, this migration uses a transaction.
 			if err = downTx(ctx, tx); err != nil {
-				return wrapf(err, "%d", plan.def.id)
+				return wrapf(err, "%d", plan.id)
 			}
 		} else {
-			if !m.drv.SupportsTransactionalDDL() || plan.def.downDB != nil {
+			if !m.drv.SupportsTransactionalDDL() || plan.down.dbFunc != nil {
 				// Either the driver does not support transactional
 				// DDL, or the up migration has been specified using
 				// a non-transactional function.
-				id = plan.def.id
+				id = plan.id
 				noTx = true
 				return nil
 			}
-			downSQL := plan.def.downSQL
-			if downSQL == "" {
-				downSQL = plan.downSQL
-			}
-			_, err = tx.ExecContext(ctx, downSQL)
+			_, err = tx.ExecContext(ctx, plan.down.sql)
 			if err != nil {
-				return wrapf(err, "%d", plan.def.id)
+				return wrapf(err, "%d", plan.id)
 			}
 		}
 
 		// At this point the migration has been performed in a transaction,
 		// so update the schema migrations table.
 		if err = m.drv.DeleteVersion(ctx, tx, m.tableName(), version.ID); err != nil {
-			return wrapf(err, "%d", plan.def.id)
+			return wrapf(err, "%d", plan.id)
 		}
-		m.log(fmt.Sprintf("migrated down version=%d", plan.def.id))
+		m.log(fmt.Sprintf("migrated down version=%d", plan.id))
 
 		return nil
 	})
@@ -604,7 +600,7 @@ func (m *Worker) downOneNoTx(ctx context.Context, id VersionID) error {
 	)
 
 	for _, p := range m.schema.plans {
-		if p.def.id == id {
+		if p.id == id {
 			plan = p
 			break
 		}
@@ -621,16 +617,12 @@ func (m *Worker) downOneNoTx(ctx context.Context, id VersionID) error {
 		return err
 	}
 
-	if downDB := plan.def.downDB; downDB != nil {
+	if downDB := plan.down.dbFunc; downDB != nil {
 		if err = downDB(ctx, m.db); err != nil {
 			return wrapf(err, "%d", id)
 		}
 	} else {
-		downSQL := plan.def.downSQL
-		if downSQL == "" {
-			downSQL = plan.downSQL
-		}
-		_, err = m.db.ExecContext(ctx, downSQL)
+		_, err = m.db.ExecContext(ctx, plan.down.sql)
 		if err != nil {
 			return wrapf(err, "%d", id)
 		}
@@ -676,11 +668,11 @@ type versionSummary struct {
 
 func (vs *versionSummary) checkLocked(id VersionID) error {
 	for _, applied := range vs.applied {
-		if applied.def.id <= id {
+		if applied.id <= id {
 			break
 		}
-		if vs.vmap[applied.def.id].Locked {
-			return fmt.Errorf("database schema version locked id=%d", applied.def.id)
+		if vs.vmap[applied.id].Locked {
+			return fmt.Errorf("database schema version locked id=%d", applied.id)
 		}
 	}
 	return nil
@@ -724,39 +716,38 @@ func (m *Worker) getVersionSummaryAllowFailed(ctx context.Context, tx *sql.Tx) (
 	// find list of unapplied versions, in order
 	for _, plan := range m.schema.plans {
 		var ver *Version
-		if _, ok := applied[plan.def.id]; ok {
+		if _, ok := applied[plan.id]; ok {
 			vs.applied = append(vs.applied, plan)
-			ver = vs.vmap[plan.def.id]
+			ver = vs.vmap[plan.id]
 		} else {
 			vs.unapplied = append(vs.unapplied, plan)
-			ver = &Version{ID: plan.def.id}
+			ver = &Version{ID: plan.id}
 			vs.versions = append(vs.versions, ver)
 			vs.vmap[ver.ID] = ver
 		}
-		if plan.def.upSQL != "" {
-			ver.Up = plan.def.upSQL
-		} else if plan.def.upDB != nil {
+
+		if plan.up.dbFunc != nil {
 			ver.Up = "(DBFunc)"
-		} else if plan.def.upTx != nil {
+		} else if plan.up.txFunc != nil {
 			ver.Up = "(TxFunc)"
+		} else {
+			ver.Up = plan.up.sql
 		}
-		if plan.downSQL != "" {
-			ver.Down = plan.downSQL
-		} else if plan.def.downSQL != "" {
-			ver.Down = plan.def.downSQL
-		} else if plan.def.downDB != nil {
+		if plan.down.dbFunc != nil {
 			ver.Down = "(DBFunc)"
-		} else if plan.def.downTx != nil {
+		} else if plan.down.txFunc != nil {
 			ver.Down = "(TxFunc)"
+		} else {
+			ver.Down = plan.down.sql
 		}
 	}
 
 	sort.Slice(vs.applied, func(i, j int) bool {
-		return vs.applied[i].def.id > vs.applied[j].def.id
+		return vs.applied[i].id > vs.applied[j].id
 	})
 
 	sort.Slice(vs.unapplied, func(i, j int) bool {
-		return vs.unapplied[i].def.id < vs.unapplied[j].def.id
+		return vs.unapplied[i].id < vs.unapplied[j].id
 	})
 
 	sort.Slice(vs.versions, func(i, j int) bool {

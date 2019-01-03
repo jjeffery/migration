@@ -86,16 +86,16 @@ func (s *Schema) complete() {
 		for id := range s.definitions {
 			ids = append(ids, id)
 		}
-		sort.Slice(ids, func(i, j int) bool {
-			return ids[i] < ids[j]
-		})
 	}
+	sort.Slice(ids, func(i, j int) bool {
+		return ids[i] < ids[j]
+	})
 
-	var prev *migrationPlan
+	plans := make(map[VersionID]*migrationPlan)
 	for _, id := range ids {
 		d := s.definitions[id]
-		p := newPlan(d, prev)
+		p := newPlan(d, plans)
 		s.plans = append(s.plans, p)
-		prev = p
+		plans[id] = p
 	}
 }

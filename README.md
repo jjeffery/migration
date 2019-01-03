@@ -16,7 +16,7 @@ See the [Godoc](https://godoc.org/github.com/jjeffery/migration) for usage detai
 * Supports SQLite and Postgres databases (support for MySQL and MSSQL planned)
 * Migrations are performed in a transaction where possible
 * Up/Down migrations for applying and rolling back migrations
-* Automatic generation of down migrations for views
+* Replay previous migrations for restoring views, functions and stored procedures
 * Support for writing migrations on separate branches
 * Migrations are embedded in the executable
 * CLI package for easy integration with programs using [cobra](https://github.com/spf13/cobra)
