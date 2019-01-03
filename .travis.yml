@@ -12,7 +12,6 @@ before_script:
   - psql -c "grant all privileges on database migration_test to migration_test;" -U postgres
 
 install:
-  - go get github.com/jjeffery/sqlr/private/scanner
   - go get github.com/lib/pq
   - go get github.com/mattn/go-sqlite3
 
